@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Female
 import androidx.compose.material.icons.filled.Male
@@ -37,12 +39,13 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .systemBarsPadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Step indicators
         Row(
-            modifier = Modifier.padding(top = 48.dp, bottom = 32.dp),
+            modifier = Modifier.padding(top = 16.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             repeat(3) { index ->
@@ -58,32 +61,40 @@ fun OnboardingScreen(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        AnimatedContent(
-            targetState = step,
-            transitionSpec = {
-                slideInHorizontally { it } + fadeIn() togetherWith
-                        slideOutHorizontally { -it } + fadeOut()
-            },
-            label = "onboarding_step"
-        ) { currentStep ->
-            when (currentStep) {
-                0 -> WelcomeStep()
-                1 -> ProfileStep(
-                    weightKg = weightKg,
-                    onWeightChange = { weightKg = it },
-                    gender = gender,
-                    onGenderChange = { gender = it }
-                )
-                2 -> ThresholdStep(
-                    threshold = threshold,
-                    onThresholdChange = { threshold = it }
-                )
+        // Scrollable content area
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    slideInHorizontally { it } + fadeIn() togetherWith
+                            slideOutHorizontally { -it } + fadeOut()
+                },
+                label = "onboarding_step"
+            ) { currentStep ->
+                when (currentStep) {
+                    0 -> WelcomeStep()
+                    1 -> ProfileStep(
+                        weightKg = weightKg,
+                        onWeightChange = { weightKg = it },
+                        gender = gender,
+                        onGenderChange = { gender = it }
+                    )
+                    2 -> ThresholdStep(
+                        threshold = threshold,
+                        onThresholdChange = { threshold = it }
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // Pinned button area at bottom
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = {
@@ -117,15 +128,13 @@ fun OnboardingScreen(
         if (step > 0) {
             TextButton(
                 onClick = { step-- },
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 4.dp)
             ) {
                 Text("Back", color = TextSecondary)
             }
         } else {
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
