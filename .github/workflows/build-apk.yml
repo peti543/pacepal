@@ -40,8 +40,8 @@ jobs:
       - name: Attach APK to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.0-debug
-          name: PacePal v0.1.0 (debug)
+          tag_name: v1.0.1-debug
+          name: PacePal v1.0.1 (debug)
           body: |
             Debug build of PacePal for testing on your phone.
 
