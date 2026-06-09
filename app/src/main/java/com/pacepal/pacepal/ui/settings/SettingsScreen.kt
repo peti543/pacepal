@@ -184,7 +184,7 @@ fun SettingsScreen(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            Divider(color = MaterialTheme.colorScheme.outline)
 
             // Disclaimer
             Row(
