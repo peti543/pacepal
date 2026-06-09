@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "PacePal"
 include(":app")
+include(":tutor")

@@ -1,0 +1,52 @@
+name: Build Tutor APK
+
+on:
+  push:
+    branches:
+      - main
+      - claude/aops-tutor-android-mobile-3300bu
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
+
+      - name: Build debug APK
+        run: gradle :tutor:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: counting-tutor-debug-apk
+          path: tutor/build/outputs/apk/debug/tutor-debug.apk
+
+      - name: Attach APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tutor-v1.0.0-debug
+          name: Counting Tutor v1.0.0 (debug)
+          body: |
+            AoPS-style Socratic tutor for "Introduction to Counting & Probability".
+
+            **Install:** Download `tutor-debug.apk` below on your Android phone, open it, and allow installation from unknown sources when prompted.
+
+            **First run:** the app asks for your Anthropic API key (sk-ant-...). It is stored only on your phone.
+          files: tutor/build/outputs/apk/debug/tutor-debug.apk
+          make_latest: true
