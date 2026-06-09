@@ -41,7 +41,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: tutor-v1.0.0-debug
-          name: Counting Tutor v1.0.0 (debug)
+          name: AoPS Tutor v1.0.0 (debug)
           body: |
             AoPS-style Socratic tutor for "Introduction to Counting & Probability".
 

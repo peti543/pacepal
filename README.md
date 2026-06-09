@@ -3,10 +3,10 @@
 This repository contains two Android apps:
 
 - **`app/`** — PacePal, the original BAC tracking app.
-- **`tutor/`** — Counting Tutor, an AoPS-style Socratic math tutor for the book
+- **`tutor/`** — AoPS Tutor, a Socratic math tutor for the book
   *Introduction to Counting & Probability* (David Patrick).
 
-## Counting Tutor
+## AoPS Tutor
 
 The tutor is a small Android app: a WebView wrapping a single offline HTML page
 (`tutor/src/main/assets/index.html`) that talks directly to the Anthropic
