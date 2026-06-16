@@ -34,10 +34,16 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun OrbitApp() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "system") {
+    NavHost(navController = navController, startDestination = "earth") {
+        composable("earth") {
+            EarthFlyScreen(
+                onOpenSystem = { navController.navigate("system") }
+            )
+        }
         composable("system") {
             SolarSystemScreen(
-                onBodySelected = { id -> navController.navigate("body/$id") }
+                onBodySelected = { id -> navController.navigate("body/$id") },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(

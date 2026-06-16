@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.FilterCenterFocus
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,7 +49,7 @@ private const val ORBIT_TIME_SCALE = 0.10f
 private data class Star(val x: Float, val y: Float, val r: Float, val phase: Float)
 
 @Composable
-fun SolarSystemScreen(onBodySelected: (String) -> Unit) {
+fun SolarSystemScreen(onBodySelected: (String) -> Unit, onBack: (() -> Unit)? = null) {
     val density = LocalDensity.current
     val touchSlopPx = with(density) { 26.dp.toPx() }
     val labelTextPx = with(density) { 12.sp.toPx() }
@@ -286,6 +288,22 @@ fun SolarSystemScreen(onBodySelected: (String) -> Unit) {
                 imageVector = Icons.Filled.FilterCenterFocus,
                 contentDescription = "Recenter view"
             )
+        }
+
+        if (onBack != null) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .systemBarsPadding()
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBack,
+                    contentDescription = "Back to Earth",
+                    tint = TextPrimary
+                )
+            }
         }
     }
 }
