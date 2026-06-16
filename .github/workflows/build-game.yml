@@ -42,7 +42,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: orbit-v1.0.0-debug
-          name: Orbit — Solar System Explorer v1.0.0 (debug)
+          name: "Orbit: Solar System Explorer v1.0.0 (debug)"
           body: |
             Debug build of **Orbit**, an interactive solar-system explorer.
 

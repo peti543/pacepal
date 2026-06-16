@@ -15,7 +15,7 @@ enum class BodyType(val label: String) {
 
 /**
  * A celestial body in the explorer. Sizes, orbit radii and speeds are tuned for a
- * pleasant, readable layout — they are NOT to true astronomical scale (the real
+ * pleasant, readable layout; they are NOT to true astronomical scale (the real
  * solar system is mostly empty space and would be impossible to view at once).
  */
 data class CelestialBody(
@@ -49,7 +49,7 @@ object OrbitData {
             orbitSpeed = 0f,
             spinSpeed = 0.25f,
             startAngle = 0f,
-            description = "The Sun is the star at the heart of our solar system — a roaring ball " +
+            description = "The Sun is the star at the heart of our solar system, a roaring ball " +
                 "of hydrogen and helium so massive that it holds every planet in orbit. It " +
                 "accounts for about 99.8% of all the mass in the solar system.",
             facts = listOf(
@@ -95,8 +95,8 @@ object OrbitData {
             orbitSpeed = 0.72f,
             spinSpeed = 0.18f,
             startAngle = 2.1f,
-            description = "Wrapped in thick clouds of sulfuric acid, Venus is the hottest planet — " +
-                "hotter even than Mercury — thanks to a runaway greenhouse effect. It also " +
+            description = "Wrapped in thick clouds of sulfuric acid, Venus is the hottest planet, " +
+                "hotter even than Mercury, thanks to a runaway greenhouse effect. It also " +
                 "spins backwards compared to most planets.",
             facts = listOf(
                 Fact("Order from Sun", "2nd"),
@@ -119,7 +119,7 @@ object OrbitData {
             orbitSpeed = 0.62f,
             spinSpeed = 0.5f,
             startAngle = 3.6f,
-            description = "Our home — the only world known to harbour life. Liquid water covers " +
+            description = "Our home, the only world known to harbour life. Liquid water covers " +
                 "about 71% of its surface, and a protective magnetic field and atmosphere " +
                 "shield it from the Sun's radiation.",
             facts = listOf(
@@ -142,7 +142,7 @@ object OrbitData {
             orbitSpeed = 0.5f,
             spinSpeed = 0.48f,
             startAngle = 5.0f,
-            description = "The 'Red Planet' gets its colour from iron oxide — rust — in its soil. " +
+            description = "The 'Red Planet' gets its colour from iron oxide (rust) in its soil. " +
                 "Mars hosts the tallest volcano and one of the deepest canyons in the solar " +
                 "system, and is a prime target in the search for past life.",
             facts = listOf(
@@ -165,7 +165,7 @@ object OrbitData {
             orbitSpeed = 0.27f,
             spinSpeed = 0.9f,
             startAngle = 1.2f,
-            description = "The giant of the solar system — so big that all the other planets could " +
+            description = "The giant of the solar system, so big that all the other planets could " +
                 "fit inside it. Its Great Red Spot is a storm wider than Earth that has raged " +
                 "for centuries.",
             facts = listOf(
@@ -190,7 +190,7 @@ object OrbitData {
             startAngle = 4.3f,
             hasRings = true,
             ringColor = Color(0xFFCBB789),
-            description = "Famous for its dazzling rings — billions of chunks of ice and rock that " +
+            description = "Famous for its dazzling rings: billions of chunks of ice and rock that " +
                 "stretch wide but are only metres thick. Saturn is the least dense planet; it " +
                 "would float in a big enough bathtub.",
             facts = listOf(
@@ -237,7 +237,7 @@ object OrbitData {
             orbitSpeed = 0.11f,
             spinSpeed = 0.6f,
             startAngle = 3.0f,
-            description = "The most distant planet — a deep-blue, windswept world with the fastest " +
+            description = "The most distant planet, a deep-blue, windswept world with the fastest " +
                 "winds in the solar system, reaching over 2,000 km/h. It was the first planet " +
                 "found by mathematical prediction rather than observation.",
             facts = listOf(

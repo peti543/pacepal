@@ -1,7 +1,7 @@
-# Orbit — Solar System Explorer
+# Orbit: Solar System Explorer
 
 A calm, interactive Android app for exploring our solar system. No score, no
-fail state — just a place to drift through space and learn about the planets.
+fail state, just a place to drift through space and learn about the planets.
 
 ## What you can do
 
@@ -14,10 +14,10 @@ fail state — just a place to drift through space and learn about the planets.
 ## Tech
 
 - Kotlin + Jetpack Compose, single module (`:game`).
-- Everything is drawn procedurally on a Compose `Canvas` — no image assets.
+- Everything is drawn procedurally on a Compose `Canvas`, with no image assets.
 - Min SDK 26, target/compile SDK 34.
 
-Sizes, orbital distances and speeds are tuned for a readable, pleasant view —
+Sizes, orbital distances and speeds are tuned for a readable, pleasant view;
 they are deliberately **not** to true astronomical scale.
 
 ## Building

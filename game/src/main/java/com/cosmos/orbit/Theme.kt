@@ -25,7 +25,7 @@ private val OrbitColors = darkColorScheme(
 
 @Composable
 fun OrbitTheme(content: @Composable () -> Unit) {
-    // Always dark — it's outer space.
+    // Always dark, it's outer space.
     MaterialTheme(
         colorScheme = OrbitColors,
         content = content

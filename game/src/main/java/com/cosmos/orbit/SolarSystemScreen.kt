@@ -78,7 +78,7 @@ fun SolarSystemScreen(onBodySelected: (String) -> Unit) {
     val center = remember { mutableStateOf(Offset.Zero) }
     val initialized = remember { mutableStateOf(false) }
 
-    // Monotonic clock (seconds) driving orbital motion — never resets, so no snapping.
+    // Monotonic clock (seconds) driving orbital motion; never resets, so no snapping.
     val time = remember { mutableStateOf(0f) }
     LaunchedEffect(Unit) {
         var last = 0L
