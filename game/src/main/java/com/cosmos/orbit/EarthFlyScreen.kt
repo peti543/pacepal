@@ -74,10 +74,9 @@ private data class FlyBody(
 private val MarsBase = Color(0xFFC1502E)
 private val MarsFeature = Color(0xFF7E2F1A)
 
-// Speed value for each gauge slot (slot 0 at the bottom of the stack).
-private val SPEED_VALUES = floatArrayOf(0f, 1f, 2f, 3f, 4f)
+// Speed (in dp/sec) for each gauge slot; slot 0 is the bottom of the stack.
+private val SPEED_VALUES = floatArrayOf(0f, 30f, 60f, 120f, 240f)
 private const val TRANSITION_SECONDS = 3f
-private const val SPEED_UNIT_PX_PER_DP = 70f   // px/sec per speed unit (scaled by density)
 private const val TURN_RATE = 2.8f             // radians/sec the ship rotates toward the stick
 
 private val OceanColor = Color(0xFF2C6FD6)
@@ -93,16 +92,17 @@ private val GaugeBorder = Color(0xFF44507A)
 @Composable
 fun EarthFlyScreen(onOpenSystem: () -> Unit) {
     val density = LocalDensity.current
-    val speedUnitPx = with(density) { SPEED_UNIT_PX_PER_DP.dp.toPx() }
+    // Forward speed is expressed in dp/sec, so one unit is one dp.
+    val speedUnitPx = with(density) { 1.dp.toPx() }
     val maxRadiusPx = with(density) { 92.dp.toPx() }
     val deadzonePx = with(density) { 8.dp.toPx() }
     val shipSizePx = with(density) { 18.dp.toPx() }
-    val brickWPx = with(density) { 50.dp.toPx() }
-    val brickHPx = with(density) { 22.dp.toPx() }
-    val brickGapPx = with(density) { 7.dp.toPx() }
+    val brickWPx = with(density) { 64.dp.toPx() }
+    val brickHPx = with(density) { 30.dp.toPx() }
+    val brickGapPx = with(density) { 8.dp.toPx() }
     val gaugeMarginRightPx = with(density) { 18.dp.toPx() }
     val gaugeMarginBottomPx = with(density) { 40.dp.toPx() }
-    val brickLabelPx = with(density) { 12.sp.toPx() }
+    val brickLabelPx = with(density) { 14.sp.toPx() }
     val edgeMarginPx = with(density) { 34.dp.toPx() }
 
     val flyBodies = remember {
