@@ -44,7 +44,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-private data class Star(val x: Float, val y: Float, val r: Float, val phase: Float)
+private data class SkyStar(val x: Float, val y: Float, val r: Float, val phase: Float)
 
 // Green continents that rotate across Earth's surface.
 private data class Continent(val lat: Float, val size: Float, val phase: Float, val alpha: Float)
@@ -75,7 +75,7 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
     val stars = remember {
         val rnd = Random(11)
         List(150) {
-            Star(rnd.nextFloat(), rnd.nextFloat(), rnd.nextFloat() * 1.6f + 0.4f, rnd.nextFloat() * 6.283f)
+            SkyStar(rnd.nextFloat(), rnd.nextFloat(), rnd.nextFloat() * 1.6f + 0.4f, rnd.nextFloat() * 6.283f)
         }
     }
 
