@@ -29,6 +29,8 @@ jobs:
           gradle-version: 8.5
 
       - name: Build debug APK
+        env:
+          GAME_VERSION_CODE: ${{ github.run_number }}
         run: gradle :game:assembleDebug
 
       - name: Upload APK artifact

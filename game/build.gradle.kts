@@ -11,11 +11,25 @@ android {
         applicationId = "com.cosmos.orbit"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        // versionCode can be overridden by CI (GAME_VERSION_CODE) so each
+        // published build is seen as a newer update. Defaults to 2 locally.
+        versionCode = (System.getenv("GAME_VERSION_CODE") ?: "2").toInt()
+        versionName = "1.0.$versionCode"
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    signingConfigs {
+        // A fixed debug key committed to the repo so every build is signed with
+        // the same certificate. This lets new builds install over old ones
+        // without uninstalling first.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 
