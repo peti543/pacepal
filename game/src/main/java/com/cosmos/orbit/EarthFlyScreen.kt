@@ -61,9 +61,22 @@ private val continents = listOf(
     Continent(lat = 0.30f, size = 0.20f, phase = 5.6f, alpha = 0.70f)
 )
 
+// A body floating in the world. Radius is a fraction of the screen's smaller
+// side (constant on-screen size, since there is no zoom).
+private data class FlyBody(
+    val name: String,
+    val world: Offset,
+    val radiusFactor: Float,
+    val base: Color,
+    val feature: Color
+)
+
+private val MarsBase = Color(0xFFC1502E)
+private val MarsFeature = Color(0xFF7E2F1A)
+
 // Speed value for each gauge slot (slot 0 at the bottom of the stack).
 private val SPEED_VALUES = floatArrayOf(0f, 1f, 2f, 3f, 4f)
-private const val TRANSITION_SECONDS = 2f
+private const val TRANSITION_SECONDS = 3f
 private const val SPEED_UNIT_PX_PER_DP = 70f   // px/sec per speed unit (scaled by density)
 private const val TURN_RATE = 2.8f             // radians/sec the ship rotates toward the stick
 
@@ -90,6 +103,14 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
     val gaugeMarginRightPx = with(density) { 18.dp.toPx() }
     val gaugeMarginBottomPx = with(density) { 40.dp.toPx() }
     val brickLabelPx = with(density) { 12.sp.toPx() }
+    val edgeMarginPx = with(density) { 34.dp.toPx() }
+
+    val flyBodies = remember {
+        listOf(
+            FlyBody("Earth", Offset(0f, 0f), 0.24f, OceanColor, LandColor),
+            FlyBody("Mars", Offset(720f, -380f), 0.12f, MarsBase, MarsFeature)
+        )
+    }
 
     val stars = remember {
         val rnd = Random(11)
@@ -249,10 +270,12 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
                 drawCircle(Color.White.copy(alpha = a), s.r, Offset(nx * size.width, ny * size.height))
             }
 
-            // Earth, scrolling relative to the ship's camera.
-            val earthCenter = screenCenter - shipWorld
-            val earthR = size.minDimension * 0.24f
-            drawEarth(earthCenter, earthR, t * 0.35f)
+            // Bodies (Earth, Mars), scrolling relative to the ship's camera.
+            for (b in flyBodies) {
+                val bc = screenCenter + (b.world - shipWorld)
+                val br = size.minDimension * b.radiusFactor
+                drawPlanet(bc, br, t * 0.35f, b.base, b.feature)
+            }
 
             // Ship: always centred, pointing along its heading.
             drawShip(screenCenter, heading, shipSizePx, actualSpeed > 0.01f)
@@ -265,6 +288,12 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
                 drawCircle(Color.White.copy(alpha = 0.06f), maxRadiusPx, joyCenter)
                 drawCircle(Color.White.copy(alpha = 0.18f), maxRadiusPx, joyCenter, style = Stroke(width = 2f))
                 drawCircle(StarBlue.copy(alpha = 0.55f), maxRadiusPx * 0.42f, thumb)
+            }
+
+            // Edge pointers for off-screen bodies.
+            for (b in flyBodies) {
+                val bc = screenCenter + (b.world - shipWorld)
+                drawEdgePointer(screenCenter, bc, b.base, edgeMarginPx)
             }
 
             // Speed gauge (bottom-right).
@@ -304,18 +333,6 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
             Text("Steer with the stick, set speed on the right", color = TextSecondary, fontSize = 13.sp)
         }
 
-        Text(
-            text = "Drag to turn  ·  Tap a neighbouring brick to change speed",
-            color = TextSecondary,
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .systemBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-        )
-
         FilledTonalIconButton(
             onClick = onOpenSystem,
             modifier = Modifier
@@ -342,10 +359,10 @@ private fun DrawScope.drawRoundedBrick(r: Rect, fill: Color, border: Color) {
     )
 }
 
-private fun DrawScope.drawEarth(c: Offset, r: Float, rot: Float) {
+private fun DrawScope.drawPlanet(c: Offset, r: Float, rot: Float, base: Color, feature: Color) {
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(OceanColor.copy(alpha = 0.35f), Color.Transparent),
+            colors = listOf(base.copy(alpha = 0.35f), Color.Transparent),
             center = c,
             radius = r * 1.6f
         ),
@@ -354,7 +371,7 @@ private fun DrawScope.drawEarth(c: Offset, r: Float, rot: Float) {
     )
     val circle = Path().apply { addOval(Rect(c.x - r, c.y - r, c.x + r, c.y + r)) }
     clipPath(circle) {
-        drawCircle(OceanColor, r, c)
+        drawCircle(base, r, c)
         for (land in continents) {
             val ang = rot + land.phase
             val depth = cos(ang)
@@ -363,7 +380,7 @@ private fun DrawScope.drawEarth(c: Offset, r: Float, rot: Float) {
             val x = c.x + sin(ang) * r * 0.84f * latCos
             val y = c.y + land.lat * r * 0.84f
             val rr = land.size * r * (0.45f + 0.55f * depth)
-            drawCircle(LandColor.copy(alpha = land.alpha * depth), rr, Offset(x, y))
+            drawCircle(feature.copy(alpha = land.alpha * depth), rr, Offset(x, y))
         }
         drawCircle(
             brush = Brush.radialGradient(
@@ -381,6 +398,37 @@ private fun DrawScope.drawEarth(c: Offset, r: Float, rot: Float) {
             ),
             radius = r, center = c
         )
+    }
+}
+
+/** When [target] is off-screen, draws a small colored marker + arrow at the
+ *  screen edge pointing toward it. Does nothing while the target is visible. */
+private fun DrawScope.drawEdgePointer(center: Offset, target: Offset, color: Color, margin: Float) {
+    val halfW = size.width / 2f - margin
+    val halfH = size.height / 2f - margin
+    val d = target - center
+    if (kotlin.math.abs(d.x) <= halfW && kotlin.math.abs(d.y) <= halfH) return // visible
+
+    val absx = kotlin.math.abs(d.x)
+    val absy = kotlin.math.abs(d.y)
+    val sx = if (absx > 1e-3f) halfW / absx else Float.MAX_VALUE
+    val sy = if (absy > 1e-3f) halfH / absy else Float.MAX_VALUE
+    val edge = center + d * minOf(sx, sy)
+    val ang = atan2(d.y, d.x)
+
+    val dot = margin * 0.22f
+    drawCircle(color, dot, edge)
+    drawCircle(Color.White.copy(alpha = 0.85f), dot, edge, style = Stroke(width = 2f))
+
+    rotate(degrees = ang * 180f / 3.1415927f, pivot = edge) {
+        val a = margin * 0.34f
+        val arrow = Path().apply {
+            moveTo(edge.x + dot + a, edge.y)
+            lineTo(edge.x + dot + a * 0.2f, edge.y - a * 0.55f)
+            lineTo(edge.x + dot + a * 0.2f, edge.y + a * 0.55f)
+            close()
+        }
+        drawPath(arrow, color)
     }
 }
 
