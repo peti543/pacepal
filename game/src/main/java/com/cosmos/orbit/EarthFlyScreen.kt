@@ -68,11 +68,20 @@ private data class FlyBody(
     val world: Offset,
     val radiusFactor: Float,
     val base: Color,
-    val feature: Color
+    val feature: Color,
+    val lockSpeed: Float,    // dp/sec you must reach to escape this planet's pull
+    val fieldFactor: Float   // gravity field radius = visual radius * fieldFactor
 )
 
 private val MarsBase = Color(0xFFC1502E)
 private val MarsFeature = Color(0xFF7E2F1A)
+private val EscapeAmber = Color(0xFFFFC061)
+
+// Gravity / orbit-capture tuning.
+private const val GRAVITY_DRIFT_DP = 18f      // orbital drift speed even at gauge speed 0
+private const val ORBIT_SETTLE = 1.6f         // how quickly the orbit radius settles
+private const val CAPTURE_ORBIT_FACTOR = 1.5f // parked orbit radius = visual radius * this
+private const val MIN_ORBIT_FACTOR = 1.12f    // never orbit closer than this
 
 // Speed (in dp/sec) for each gauge slot; slot 0 is the bottom of the stack.
 private val SPEED_VALUES = floatArrayOf(0f, 30f, 60f, 120f, 240f)
@@ -107,8 +116,8 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
 
     val flyBodies = remember {
         listOf(
-            FlyBody("Earth", Offset(0f, 0f), 0.24f, OceanColor, LandColor),
-            FlyBody("Mars", Offset(720f, -380f), 0.12f, MarsBase, MarsFeature)
+            FlyBody("Earth", Offset(0f, 0f), 0.24f, OceanColor, LandColor, lockSpeed = 90f, fieldFactor = 2.3f),
+            FlyBody("Mars", Offset(720f, -380f), 0.12f, MarsBase, MarsFeature, lockSpeed = 45f, fieldFactor = 3.0f)
         )
     }
 
@@ -139,6 +148,12 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
     var transitionStart by remember { mutableStateOf(0f) }
     var transitionFromSpeed by remember { mutableStateOf(0f) }
     var actualSpeed by remember { mutableStateOf(0f) }
+
+    // Gravity capture: index of the planet we are orbit-locked to, or -1.
+    var capturedIndex by remember { mutableStateOf(-1) }
+    var orbitAngle by remember { mutableStateOf(0f) }
+    var orbitDir by remember { mutableStateOf(1f) }
+    var orbitRadius by remember { mutableStateOf(0f) }
 
     fun brickRects(w: Float, h: Float): List<Rect> {
         val right = w - gaugeMarginRightPx
@@ -190,24 +205,69 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
                     }
                 }
 
-                // Steering: turn the ship toward the stick.
-                if (joyActive) {
-                    val raw = joyThumb - joyCenter
-                    val dist = raw.getDistance()
-                    if (dist > deadzonePx) {
-                        val desired = atan2(raw.y, raw.x)
-                        var delta = desired - heading
-                        while (delta > 3.1415927f) delta -= 6.2831855f
-                        while (delta < -3.1415927f) delta += 6.2831855f
-                        val step = TURN_RATE * dt
-                        heading = if (kotlin.math.abs(delta) <= step) desired else heading + kotlin.math.sign(delta) * step
-                    }
-                }
+                val sz = canvasSize
+                val minDim = minOf(sz.width, sz.height).toFloat()
 
-                // Forward motion (world scrolls; ship stays centred).
-                val sp = actualSpeed * speedUnitPx
-                if (sp > 0f) {
-                    shipWorld = Offset(shipWorld.x + cos(heading) * sp * dt, shipWorld.y + sin(heading) * sp * dt)
+                if (minDim <= 0f) {
+                    // Wait for layout.
+                } else if (capturedIndex >= 0) {
+                    // Orbit-locked: circle the planet until fast enough to escape.
+                    val b = flyBodies[capturedIndex]
+                    if (actualSpeed >= b.lockSpeed) {
+                        heading = orbitAngle + orbitDir * 1.5707964f // fly off along the tangent
+                        capturedIndex = -1
+                        val sp = actualSpeed * speedUnitPx
+                        shipWorld = Offset(shipWorld.x + cos(heading) * sp * dt, shipWorld.y + sin(heading) * sp * dt)
+                    } else {
+                        val vR = minDim * b.radiusFactor
+                        val capR = vR * CAPTURE_ORBIT_FACTOR
+                        orbitRadius += (capR - orbitRadius) * minOf(1f, dt * ORBIT_SETTLE)
+                        val tangentialPx = maxOf(actualSpeed, GRAVITY_DRIFT_DP) * speedUnitPx
+                        orbitAngle += orbitDir * (tangentialPx / orbitRadius) * dt
+                        shipWorld = b.world + Offset(cos(orbitAngle), sin(orbitAngle)) * orbitRadius
+                        heading = orbitAngle + orbitDir * 1.5707964f
+                    }
+                } else {
+                    // Free flight: steer with the stick, then move forward.
+                    if (joyActive) {
+                        val raw = joyThumb - joyCenter
+                        val dist = raw.getDistance()
+                        if (dist > deadzonePx) {
+                            val desired = atan2(raw.y, raw.x)
+                            var delta = desired - heading
+                            while (delta > 3.1415927f) delta -= 6.2831855f
+                            while (delta < -3.1415927f) delta += 6.2831855f
+                            val step = TURN_RATE * dt
+                            heading = if (kotlin.math.abs(delta) <= step) desired else heading + kotlin.math.sign(delta) * step
+                        }
+                    }
+                    val sp = actualSpeed * speedUnitPx
+                    if (sp > 0f) {
+                        shipWorld = Offset(shipWorld.x + cos(heading) * sp * dt, shipWorld.y + sin(heading) * sp * dt)
+                    }
+                    // Capture if drifting too slowly through a planet's gravity field.
+                    var capi = -1
+                    var capBest = Float.MAX_VALUE
+                    for (i in flyBodies.indices) {
+                        val b = flyBodies[i]
+                        val field = minDim * b.radiusFactor * b.fieldFactor
+                        val d = (shipWorld - b.world).getDistance()
+                        if (d < field && actualSpeed < b.lockSpeed && d < capBest) {
+                            capBest = d
+                            capi = i
+                        }
+                    }
+                    if (capi >= 0) {
+                        val b = flyBodies[capi]
+                        val vR = minDim * b.radiusFactor
+                        val field = vR * b.fieldFactor
+                        val rel = shipWorld - b.world
+                        orbitRadius = rel.getDistance().coerceIn(vR * MIN_ORBIT_FACTOR, field)
+                        orbitAngle = atan2(rel.y, rel.x)
+                        val vel = Offset(cos(heading), sin(heading))
+                        orbitDir = if (rel.x * vel.y - rel.y * vel.x >= 0f) 1f else -1f
+                        capturedIndex = capi
+                    }
                 }
             }
         }
@@ -271,9 +331,18 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
             }
 
             // Bodies (Earth, Mars), scrolling relative to the ship's camera.
-            for (b in flyBodies) {
+            flyBodies.forEachIndexed { i, b ->
                 val bc = screenCenter + (b.world - shipWorld)
                 val br = size.minDimension * b.radiusFactor
+                val field = br * b.fieldFactor
+                val captured = i == capturedIndex
+                val ringAlpha = if (captured) (0.30f + 0.20f * sin(t * 4f)).coerceIn(0f, 0.5f) else 0.12f
+                drawCircle(
+                    color = b.base.copy(alpha = ringAlpha),
+                    radius = field,
+                    center = bc,
+                    style = Stroke(width = if (captured) 3f else 1.5f)
+                )
                 drawPlanet(bc, br, t * 0.35f, b.base, b.feature)
             }
 
@@ -300,6 +369,7 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
             val rects = brickRects(size.width, size.height)
             val activeSlot = if (transitioning) targetSlot else currentSlot
             val flash = 0.5f + 0.5f * sin(t * 9f)
+            val escapeLock = if (capturedIndex >= 0) flyBodies[capturedIndex].lockSpeed else -1f
             rects.forEachIndexed { i, r ->
                 val filled = i <= activeSlot
                 val isActive = i == activeSlot
@@ -310,6 +380,16 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
                     else -> GaugeEmpty
                 }
                 drawRoundedBrick(r, fill, GaugeBorder)
+                // While orbit-locked, mark the speeds that let you escape.
+                if (escapeLock >= 0f && SPEED_VALUES[i] >= escapeLock) {
+                    drawRoundRect(
+                        color = EscapeAmber.copy(alpha = 0.55f + 0.45f * flash),
+                        topLeft = r.topLeft,
+                        size = r.size,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(r.height * 0.28f),
+                        style = Stroke(width = 3f)
+                    )
+                }
                 brickPaint.textSize = brickLabelPx
                 brickPaint.color = (if (filled) Color.White else TextSecondary).toArgb()
                 drawContext.canvas.nativeCanvas.drawText(
