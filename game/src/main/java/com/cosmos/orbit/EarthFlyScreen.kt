@@ -2,8 +2,6 @@ package com.cosmos.orbit
 
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +34,9 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -278,38 +279,53 @@ fun EarthFlyScreen(onOpenSystem: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val sz = canvasSize
-                        val onGauge = sz.width > 0 &&
-                            gaugeBounds(sz.width.toFloat(), sz.height.toFloat()).contains(down.position)
-
-                        if (onGauge) {
-                            // Treat as a speed-brick tap.
-                            down.consume()
-                            val rects = brickRects(sz.width.toFloat(), sz.height.toFloat())
-                            val slot = rects.indexOfFirst { it.contains(down.position) }
-                            while (true) {
-                                val e = awaitPointerEvent()
-                                val c = e.changes.firstOrNull { it.id == down.id }
-                                if (c == null || !c.pressed) break
-                                c.consume()
+                    // Multi-touch: one finger drives the joystick while another
+                    // can tap the speed gauge at the same time.
+                    awaitPointerEventScope {
+                        var joyId: PointerId? = null
+                        var gaugeId: PointerId? = null
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val w = canvasSize.width.toFloat()
+                            val h = canvasSize.height.toFloat()
+                            for (c in event.changes) {
+                                when {
+                                    c.changedToDown() -> {
+                                        val onGauge = w > 0f && gaugeBounds(w, h).contains(c.position)
+                                        if (onGauge && gaugeId == null) {
+                                            gaugeId = c.id
+                                            c.consume()
+                                        } else if (!onGauge && joyId == null) {
+                                            joyId = c.id
+                                            joyActive = true
+                                            joyCenter = c.position
+                                            joyThumb = c.position
+                                            c.consume()
+                                        }
+                                    }
+                                    c.changedToUp() || !c.pressed -> {
+                                        when (c.id) {
+                                            joyId -> {
+                                                joyActive = false
+                                                joyId = null
+                                                c.consume()
+                                            }
+                                            gaugeId -> {
+                                                val slot = brickRects(w, h).indexOfFirst { it.contains(c.position) }
+                                                if (slot >= 0) trySelect(slot)
+                                                gaugeId = null
+                                                c.consume()
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        if (c.id == joyId) {
+                                            joyThumb = c.position
+                                            c.consume()
+                                        }
+                                    }
+                                }
                             }
-                            if (slot >= 0) trySelect(slot)
-                        } else {
-                            // Joystick.
-                            joyActive = true
-                            joyCenter = down.position
-                            joyThumb = down.position
-                            down.consume()
-                            while (true) {
-                                val e = awaitPointerEvent()
-                                val c = e.changes.firstOrNull { it.id == down.id }
-                                if (c == null || !c.pressed) break
-                                joyThumb = c.position
-                                c.consume()
-                            }
-                            joyActive = false
                         }
                     }
                 }
