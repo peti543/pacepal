@@ -5,6 +5,8 @@ This repository contains two Android apps:
 - **`app/`** — PacePal, the original BAC tracking app.
 - **`tutor/`** — AoPS Tutor, a Socratic math tutor for the book
   *Introduction to Counting & Probability* (David Patrick).
+- **`solar/`** — Solar System, an offline orbit simulator (planets around the
+  Sun, moons around the planets, one Earth year per hour).
 
 ## AoPS Tutor
 
@@ -53,3 +55,35 @@ The original web version kept the key on a Node server. On a phone, the
 simplest approach is calling the API straight from the app with your own key
 entered once in the app — fine for personal use; don't share the APK with the
 key already saved on a device.
+
+## Solar System
+
+A small Android app: a WebView wrapping a single offline HTML page
+(`solar/src/main/assets/index.html`) that animates the solar system on a
+canvas. No server, no network, no API key.
+
+### Model
+
+- The eight planets orbit the Sun; notable moons orbit Earth, Mars, Jupiter,
+  and Saturn (Saturn also gets a ring).
+- Time is scaled so **one Earth year takes one hour** at 1x. Every body moves
+  at its true relative rate: Mercury laps the Sun about four times per Earth
+  orbit, Neptune barely creeps, the Moon circles Earth roughly twelve times a
+  year, and so on.
+- Distances and body sizes are **not** to scale (true scale is unwatchable on a
+  phone): orbital radii are compressed with a power curve and sizes are
+  enlarged, but the relative ordering is preserved.
+
+### Use
+
+- **Pinch** to zoom, **drag** to pan, **double-tap** to reset the view.
+- The slider sets speed, from about 0.25 up to ~365 years per hour; default is
+  1 year per hour as requested.
+- Toggle planet **Labels** and **Orbits**, or **Pause**.
+
+### Build locally (optional)
+
+```sh
+gradle :solar:assembleDebug
+# APK at solar/build/outputs/apk/debug/solar-debug.apk
+```

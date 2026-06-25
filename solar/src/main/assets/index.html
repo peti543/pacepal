@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Solar System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05060d; }
+  body { font-family: -apple-system, Roboto, "Segoe UI", sans-serif; color: #cdd6f4; }
+  #sky { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: calc(env(safe-area-inset-top) + 8px) 12px 8px 12px;
+    font-size: 13px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px #000;
+  }
+  #clock { font-variant-numeric: tabular-nums; }
+  #clock .big { font-size: 17px; font-weight: 600; }
+  #clock .sub { opacity: 0.7; }
+
+  #panel {
+    position: fixed; left: 0; right: 0;
+    bottom: 0;
+    padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px) 12px;
+    background: linear-gradient(to top, rgba(5,6,13,0.92), rgba(5,6,13,0.0));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    font-size: 13px;
+    color: #cdd6f4;
+    background: rgba(40,46,72,0.85);
+    border: 1px solid #3a4668;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active { background: #4f9de0; color: #05060d; }
+  button.on { background: #4f9de0; color: #05060d; border-color: #4f9de0; }
+  .speedlabel { font-variant-numeric: tabular-nums; min-width: 78px; }
+  input[type=range] { flex: 1; min-width: 120px; accent-color: #4f9de0; }
+  .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+
+<div id="hud">
+  <div id="clock">
+    <span class="big" id="years">0.00 yr</span>
+    <span class="sub" id="realtime"></span>
+  </div>
+</div>
+
+<div id="panel">
+  <div class="row">
+    <span class="speedlabel" id="speedlabel">1 yr / hr</span>
+    <input type="range" id="speed" min="0" max="100" value="20">
+  </div>
+  <div class="row">
+    <button id="play">Pause</button>
+    <button id="labels" class="on">Labels</button>
+    <button id="orbits" class="on">Orbits</button>
+    <span class="spacer"></span>
+    <button id="reset">Reset view</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------------------------------------------------------------
+   Time model: 1 Earth year == 1 hour of real time at speed 1x.
+   So one simulated year = 3600 real seconds / speedMultiplier.
+   A planet with orbital period P years sweeps a full circle every
+   P simulated years; a moon with period D days every D/365.25 years.
+--------------------------------------------------------------- */
+const SECONDS_PER_YEAR_AT_1X = 3600;
+const DAYS_PER_YEAR = 365.25;
+
+// Bodies. au = orbital radius (astronomical units), period in years,
+// size = radius relative to Earth, color, and optional moons.
+// Moon dist is a display hint (px around the planet), period in days.
+const PLANETS = [
+  { name: "Mercury", au: 0.39, period: 0.2409, size: 0.38, color: "#b6b1a8" },
+  { name: "Venus",   au: 0.72, period: 0.6152, size: 0.95, color: "#e0c27a" },
+  { name: "Earth",   au: 1.00, period: 1.0000, size: 1.00, color: "#4f9de0",
+    moons: [ { name: "Moon", dist: 14, period: 27.32, size: 2.0, color: "#cfd2d6" } ] },
+  { name: "Mars",    au: 1.52, period: 1.8808, size: 0.53, color: "#d8643b",
+    moons: [
+      { name: "Phobos", dist: 9,  period: 0.319, size: 1.2, color: "#9a8a7a" },
+      { name: "Deimos", dist: 13, period: 1.263, size: 1.1, color: "#8a7a6a" }
+    ] },
+  { name: "Jupiter", au: 5.20, period: 11.862, size: 4.6, color: "#d7b48a",
+    moons: [
+      { name: "Io",       dist: 16, period: 1.769,  size: 1.6, color: "#e7d96a" },
+      { name: "Europa",   dist: 21, period: 3.551,  size: 1.5, color: "#cfc2a8" },
+      { name: "Ganymede", dist: 27, period: 7.155,  size: 1.9, color: "#9a9488" },
+      { name: "Callisto", dist: 34, period: 16.689, size: 1.8, color: "#6f6a60" }
+    ] },
+  { name: "Saturn",  au: 9.58, period: 29.457, size: 3.9, color: "#e6cf8f", ring: true,
+    moons: [ { name: "Titan", dist: 26, period: 15.945, size: 1.9, color: "#cB9b5a" } ] },
+  { name: "Uranus",  au: 19.2, period: 84.02, size: 2.0, color: "#9fd6e0" },
+  { name: "Neptune", au: 30.05, period: 164.8, size: 1.95, color: "#5a78e0" }
+];
+
+const canvas = document.getElementById("sky");
+const ctx = canvas.getContext("2d");
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildStars();
+}
+window.addEventListener("resize", resize);
+
+/* ---- starfield ---- */
+let stars = [];
+function buildStars() {
+  stars = [];
+  const n = Math.round((W * H) / 6000);
+  for (let i = 0; i < n; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.2 + 0.2,
+      a: Math.random() * 0.6 + 0.2
+    });
+  }
+}
+
+/* ---- view transform (pan + zoom) ---- */
+const view = { scale: 1, ox: 0, oy: 0 };
+function resetView() {
+  view.scale = 1;
+  view.ox = 0;
+  view.oy = 0;
+}
+
+/* Map an astronomical unit value to a base pixel radius. Real spacing is
+   compressed with a power curve so the inner planets aren't a tiny knot
+   and Neptune still fits. */
+function auToPx() {
+  const minDim = Math.min(W, H);
+  const maxAu = 30.05;
+  const margin = minDim * 0.46;
+  return (au) => Math.pow(au, 0.62) / Math.pow(maxAu, 0.62) * margin;
+}
+function planetRadius(size) {
+  return Math.max(2.2, 2.4 + Math.cbrt(size) * 2.6);
+}
+
+/* ---- simulation clock ---- */
+let simSeconds = 0;       // accumulated simulated seconds
+let playing = true;
+let lastT = null;
+
+// speed slider 0..100 maps to a multiplier 0.25x .. 365x (log-ish).
+function sliderToMult(v) {
+  // v=0 -> 0.25, v=20 -> 1, v=100 -> ~365
+  const t = v / 100;
+  return 0.25 * Math.pow(365 / 0.25, t);
+}
+let speedMult = sliderToMult(20);
+
+function fmtSpeed(mult) {
+  if (mult >= 60) return Math.round(mult) + " yr / hr";
+  if (mult >= 2)  return mult.toFixed(0) + " yr / hr";
+  if (Math.abs(mult - 1) < 0.05) return "1 yr / hr";
+  return mult.toFixed(2) + " yr / hr";
+}
+
+/* ---- drawing ---- */
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // stars
+  for (const s of stars) {
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  const cx = W / 2 + view.ox;
+  const cy = H / 2 + view.oy;
+  const scale = view.scale;
+  const au = auToPx();
+  const years = simSeconds / SECONDS_PER_YEAR_AT_1X;
+  const days = years * DAYS_PER_YEAR;
+  const showLabels = labelsBtn.classList.contains("on");
+  const showOrbits = orbitsBtn.classList.contains("on");
+
+  // orbit rings
+  if (showOrbits) {
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(120,140,200,0.18)";
+    for (const p of PLANETS) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, au(p.au) * scale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // sun
+  const sunR = 12 * Math.min(scale, 2.2);
+  const glow = ctx.createRadialGradient(cx, cy, sunR * 0.2, cx, cy, sunR * 3.2);
+  glow.addColorStop(0, "rgba(255,224,130,0.9)");
+  glow.addColorStop(0.4, "rgba(245,183,49,0.35)");
+  glow.addColorStop(1, "rgba(245,183,49,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunR * 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffd24a";
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // planets + moons
+  for (const p of PLANETS) {
+    const r = au(p.au) * scale;
+    const ang = (years / p.period) * Math.PI * 2 + (p.phase || 0);
+    const px = cx + Math.cos(ang) * r;
+    const py = cy + Math.sin(ang) * r;
+    const pr = planetRadius(p.size) * Math.min(scale, 2.4);
+
+    // Saturn ring
+    if (p.ring) {
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-0.5);
+      ctx.scale(1, 0.42);
+      ctx.lineWidth = Math.max(1.5, pr * 0.5);
+      ctx.strokeStyle = "rgba(220,200,150,0.7)";
+      ctx.beginPath();
+      ctx.arc(0, 0, pr * 2.0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (showLabels) {
+      ctx.fillStyle = "rgba(205,214,244,0.85)";
+      ctx.font = "11px -apple-system, Roboto, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(p.name, px, py - pr - 5);
+    }
+
+    // moons
+    if (p.moons) {
+      for (const m of p.moons) {
+        const md = (m.dist + pr) * Math.min(scale, 2.4);
+        const mang = (days / m.period) * Math.PI * 2 + (m.phase || 0);
+        const mx = px + Math.cos(mang) * md;
+        const my = py + Math.sin(mang) * md;
+        if (showOrbits) {
+          ctx.lineWidth = 0.7;
+          ctx.strokeStyle = "rgba(150,160,200,0.25)";
+          ctx.beginPath();
+          ctx.arc(px, py, md, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = m.color;
+        ctx.beginPath();
+        ctx.arc(mx, my, Math.max(1.4, m.size * 0.9 * Math.min(scale, 2.4)), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // clock readout
+  yearsEl.textContent = years.toFixed(2) + " yr";
+  realtimeEl.textContent = "(" + fmtSpeed(speedMult) + ")";
+}
+
+/* random starting phases so the planets don't all line up */
+for (const p of PLANETS) {
+  p.phase = Math.random() * Math.PI * 2;
+  if (p.moons) for (const m of p.moons) m.phase = Math.random() * Math.PI * 2;
+}
+
+function frame(t) {
+  if (lastT == null) lastT = t;
+  let dt = (t - lastT) / 1000;
+  lastT = t;
+  if (dt > 0.1) dt = 0.1; // clamp after tab switch / hiccup
+  if (playing) simSeconds += dt * speedMult;
+  draw();
+  requestAnimationFrame(frame);
+}
+
+/* ---- controls ---- */
+const playBtn = document.getElementById("play");
+const labelsBtn = document.getElementById("labels");
+const orbitsBtn = document.getElementById("orbits");
+const resetBtn = document.getElementById("reset");
+const speedSlider = document.getElementById("speed");
+const speedLabelEl = document.getElementById("speedlabel");
+const yearsEl = document.getElementById("years");
+const realtimeEl = document.getElementById("realtime");
+
+playBtn.addEventListener("click", () => {
+  playing = !playing;
+  playBtn.textContent = playing ? "Pause" : "Play";
+});
+labelsBtn.addEventListener("click", () => labelsBtn.classList.toggle("on"));
+orbitsBtn.addEventListener("click", () => orbitsBtn.classList.toggle("on"));
+resetBtn.addEventListener("click", resetView);
+speedSlider.addEventListener("input", () => {
+  speedMult = sliderToMult(+speedSlider.value);
+  speedLabelEl.textContent = fmtSpeed(speedMult);
+});
+speedLabelEl.textContent = fmtSpeed(speedMult);
+
+/* ---- pan & pinch-zoom ---- */
+let pointers = new Map();
+let pinchStartDist = 0, pinchStartScale = 1;
+let panStart = null;
+
+canvas.addEventListener("pointerdown", (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 1) {
+    panStart = { x: e.clientX, y: e.clientY, ox: view.ox, oy: view.oy };
+  } else if (pointers.size === 2) {
+    const pts = [...pointers.values()];
+    pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    pinchStartScale = view.scale;
+  }
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 1 && panStart) {
+    view.ox = panStart.ox + (e.clientX - panStart.x);
+    view.oy = panStart.oy + (e.clientY - panStart.y);
+  } else if (pointers.size === 2) {
+    const pts = [...pointers.values()];
+    const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (pinchStartDist > 0) {
+      view.scale = Math.max(0.3, Math.min(8, pinchStartScale * (d / pinchStartDist)));
+    }
+  }
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size === 1) {
+    const p = [...pointers.values()][0];
+    panStart = { x: p.x, y: p.y, ox: view.ox, oy: view.oy };
+  } else {
+    panStart = null;
+  }
+}
+canvas.addEventListener("pointerup", endPointer);
+canvas.addEventListener("pointercancel", endPointer);
+
+/* double-tap to reset view */
+let lastTap = 0;
+canvas.addEventListener("pointerdown", () => {
+  const now = Date.now();
+  if (now - lastTap < 280) resetView();
+  lastTap = now;
+});
+
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

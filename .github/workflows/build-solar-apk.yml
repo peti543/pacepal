@@ -1,0 +1,55 @@
+name: Build Solar System APK
+
+on:
+  push:
+    branches:
+      - main
+      - claude/aops-tutor-android-mobile-3300bu
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
+
+      - name: Build debug APK
+        run: gradle :solar:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: solar-system-debug-apk
+          path: solar/build/outputs/apk/debug/solar-debug.apk
+
+      - name: Attach APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: solar-v1.0.0-debug
+          name: Solar System v1.0.0 (debug)
+          body: |
+            A small offline solar-system simulator: planets orbit the Sun and
+            moons orbit the planets, scaled so one Earth year takes one hour.
+
+            **Install:** Download `solar-debug.apk` below on your Android phone,
+            open it, and allow installation from unknown sources when prompted.
+
+            Pinch to zoom, drag to pan, double-tap to reset the view. The slider
+            controls speed (default: 1 year per hour). No internet or API key needed.
+          files: solar/build/outputs/apk/debug/solar-debug.apk
+          make_latest: false
